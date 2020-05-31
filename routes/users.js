@@ -7,6 +7,7 @@ var dbUrl = 'mongodb://localhost:27017/boatingproject';
 var User= require('./userSchema');
 const nodemailer = require("nodemailer");
 var randomstring= require('randomstring');
+var Ride=require('./rideSchema');
 
 //Verification Mail
 function sendVerificationMail(user){
@@ -364,9 +365,9 @@ router.post('/getProfile',function(req,res,next){
   
   //fetch values from request
   var post_data=req.body;
-  var usrnm=post_data.id;
+  var user_id=post_data.id;
   console.log("Data"+post_data);
-  console.log("Username: "+usrnm);
+  console.log("USER ID: "+user_id);
 
   //connect with DB
   mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
@@ -376,16 +377,16 @@ router.post('/getProfile',function(req,res,next){
     return res.json("Error in communicating with database");
   }
   else{
-    User.findOne({'_id':usrnm},function(err,data){
+    User.findOne({'_id':user_id},function(err,data){
       if(err){
         throw err; 
       }
       else{
         if(data===null){
           var respondWithJson={
-            'message':"Cannot find user with username: "+usrnm
+            'message':"Cannot find user with user id: "+user_id
           }
-            console.log("Error finding user with username : "+usrnm);
+            console.log("Error finding user with user id : "+user_id);
             return res.json(respondWithJson);    
         }else{
                 console.log("Found USER !!!!!!");
@@ -400,5 +401,445 @@ router.post('/getProfile',function(req,res,next){
     );
 }});
 });
+
+
+
+//offer a ride
+router.post('/offer-a-ride',function(req,res,next){
+  console.log("====================================OFFER A RIDE REQUEST !!!!")
+  //fetch values from request
+  var post_data=req.body;
+  var user_id=post_data.user_id;
+  var dearture_city=post_data.dearture_city;
+  var departure_time=post_data.departure_time;
+  var ride_type=post_data.ride_type;
+  var seats=post_data.seats;
+  var name= post_data.name;
+  var reserved_users= [];
+  //connect with DB
+  mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
+  if(err){
+    console.log("Error in communicating with database");
+    return res.json("Error in communicating with database");
+  }
+  else{
+          var ride=new Ride({'user_id':user_id,'name':name,'dearture_city':dearture_city,'departure_time':departure_time,'ride_type':ride_type,'seats':seats, "status":"active"});
+          ride.reserved_users=reserved_users;
+
+          console.log("BOAT OWNER NAME : "+ride.name);
+          console.log("CITY OF DEPARTURE : "+ride.dearture_city);
+          
+          //save it
+          ride.save(function(err,usrr){
+          if(err){
+            console.log(err);
+            console.log("Error while creating your ride.");
+            resObj={error:"true",message:"Error while creating your ride."}
+            return res.json(resObj);
+          }
+          else{
+            console.log("Ride offered successfully.");
+            resObj={error:"false",message:"Ride offered successfully."}
+            return res.json(resObj);
+          }
+        });
+       
+}});
+});
+
+
+//Get list of rides 
+router.post('/find-rides',function(req,res,next){
+  console.log("====================================FIND RIDES REQUEST !!!!")
+  
+//fetch values from request
+  var post_data=req.body;
+  var city=post_data.city;
+  var date_filter=post_data.date;
+  var start=date_filter;
+  var end=date_filter;
+  console.log("REQUEST BODY DATE FILTER: "+date_filter)
+  if(!date_filter || date_filter==""){
+    date_filter=new Date();
+  }
+
+  start = new Date(date_filter);
+  end = new Date(date_filter);
+  start.setHours(0,0,0,0);
+  end.setHours(23,59,59,999);
+
+  console.log("START DATE: "+start)
+  console.log("END DATE: "+end)
+  console.log("CITY: "+city);
+  
+  //connect with DB
+  mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
+  //create new object of above User model
+  if(err){
+    console.log("Error in communicating with database");
+    return res.json("Error in communicating with database");
+  }
+  else{
+    Ride.find({'status':"active",'dearture_city':city, 'departure_time':{$gte: start, $lte: end}},function(err,data){
+      if(err){
+        throw err; 
+      }
+      else{
+        if(data===null){
+          var respondWithJson={
+            'error':'true',
+            'message':"Cannot find any ride in city: "+city
+          }
+            console.log("Cannot find any ride in city: : "+city);
+            return res.json(respondWithJson);    
+        }else{
+                console.log("Found RIDES !!!!!!");
+                console.log("Ride DETAILS: "+data);
+                resObj={'error':"false",'data':data}
+                return res.json(resObj); 
+        }
+      }
+      }
+    );
+}});
+});
+
+
+//Get specific ride
+router.post('/find-specific-ride',function(req,res,next){
+  console.log("====================================FIND SPECIFIC RIDE REQUEST !!!!")
+  
+//fetch values from request
+  var post_data=req.body;
+  var ride_id=post_data.ride_id;
+  
+  //connect with DB
+  mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
+  //create new object of above User model
+  if(err){
+    console.log("Error in communicating with database");
+    return res.json("Error in communicating with database");
+  }
+  else{
+    Ride.findById(ride_id,function(err,data){
+      if(err){
+        throw err; 
+      }
+      else{
+        if(data===null){
+          var respondWithJson={
+            'error':'true',
+            'message':"Cannot find any ride with id: "+ride_id
+          }
+            console.log("Cannot find any ride with id: "+ride_id);
+            return res.json(respondWithJson);    
+        }else{
+                console.log("FOUND THE RIDE !!!!!!");
+                console.log("Ride DETAILS: "+data);
+                resObj={'error':"false",'data':data}
+                return res.json(resObj); 
+        }
+      }
+      }
+    );
+}});
+});
+
+
+//book a ride
+router.post('/book-a-ride',function(req,res,next){
+  console.log("====================================Book A RIDE REQUEST !!!!")
+  //fetch values from request
+  var post_data=req.body;
+  var user_id=post_data.user_id;
+  var user_name=post_data.name;
+  var ride_id=post_data.ride_id;
+  // connect with DB
+  mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
+  if(err){
+    console.log("Error in communicating with database");
+    return res.json("Error in communicating with database");
+  }
+  else{
+
+    Ride.findOne({'_id':ride_id},function(err,data){
+      if(err){
+        throw err; 
+      }
+      else{
+        if(data===null){
+          var respondWithJson={
+            'error':'true',
+            'message':"Cannot find ride"
+          }
+            console.log("Error finding ride with id: "+ride_id);
+            return res.json(respondWithJson);    
+        }else{
+            console.log("Found RIDE !!!!!!");
+            console.log("RIDE CITY: "+data.dearture_city);
+            console.log("ALREADY RESERVED USERS: "+data.reserved_users);
+              if (data.ride_type == "instant"){
+                if(data.seats>0){
+                  console.log("INSIDE INSTANT")
+                  usrObj={"user_id":user_id,'name':user_name,"booking_status":"booked"}
+                  data.reserved_users.push(usrObj)
+                  data.seats = data.seats-1;
+                  console.log("SEATS LEFT: "+data.seats)
+                  data.save(function(err,dat){
+                    if(err){
+                      console.log(err);
+                      console.log("Error while reserving.");
+                      resObj={error:"true",message:"Error while reserving."}
+                      return res.json(resObj);
+                    }
+                    else{
+                      console.log("Ride reserved successfully.");
+                      resObj={error:"false",message:"Ride reserved successfully."}
+                      return res.json(resObj);
+                    }
+                  });
+                }
+                else{
+                    console.log("ALL SEATS BOOKED ALREADY.");
+                    resObj={error:"true",message:"All seats booked already."}
+                    return res.json(resObj);
+                }      
+              }else{
+                usrObj={"user_id":user_id,'name':user_name,"booking_status":"pending"}
+                data.reserved_users.push(usrObj)
+                data.save(function(err,dat){
+                  if(err){
+                    console.log(err);
+                    console.log("Error while reserving.");
+                    resObj={error:"true",message:"Error while reserving."}
+                    return res.json(resObj);
+                  }
+                  else{
+                    console.log("Ride reserved successfully.");
+                    resObj={error:"false",message:"Ride reserved successfully."}
+                    return res.json(resObj);
+                  }
+                }); 
+              }
+        }
+      }
+      }
+    );
+    
+          
+       
+}});
+});
+
+//update a reservation request
+router.post('/update-pending-reservation',function(req,res,next){
+  console.log("====================================UPDATE A PENDING REQUEST!!!!")
+  //fetch values from request
+  var post_data=req.body;
+  var user_id=post_data.user_id;
+  var ride_id=post_data.ride_id;
+  var is_reservation=post_data.is_reservation;
+  // connect with DB
+  mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
+  if(err){
+    console.log("Error in communicating with database");
+    return res.json("Error in communicating with database");
+  }
+  else{
+
+    Ride.findOne({'_id':ride_id},function(err,data){
+      if(err){
+        throw err; 
+      }
+      else{
+        if(data===null){
+          var respondWithJson={
+            'error':'true',
+            'message':"Cannot find ride"
+          }
+            console.log("Error finding ride with id: "+ride_id);
+            return res.json(respondWithJson);    
+        }else{
+          if (is_reservation == "yes"){
+              
+              if(data.seats>0){
+                Ride.findOneAndUpdate(
+                  {'_id':ride_id,'reserved_users.user_id': user_id}, {'$set': { 'reserved_users.$.booking_status': 'booked',
+                },$inc: { 'seats': -1}}, function(err, rez) {
+                      if (err) { 
+                          resObj={error:"true",message:"Reservation approval error."}
+                          return res.json(resObj);
+                        }
+                      else{
+                          resObj={error:"false",message:"Reservation approved successfully."}
+                          return res.json(resObj);
+                        }
+                        
+                  });
+              }else{
+                  console.log("ALL SEATS BOOKED ALREADY.");
+                  resObj={error:"true",message:"All seats booked already."}
+                  return res.json(resObj);
+              }
+            
+          }
+              //   console.log("Found RIDE !!!!!!");
+              //   console.log("RIDE CITY: "+data.dearture_city);
+              //   console.log("ALREADY RESERVED USERS: "+data.reserved_users);
+              //   if (is_reservation=="yes"){ 
+              //       usrObj={"user_id":user_id,"booking_status":"booked"}
+              //       data.reserved_users.push(usrObj)
+              //       data.save(function(err,dat){
+              //         if(err){
+              //           console.log(err);
+              //           console.log("Error while reserving.");
+              //           resObj={error:"true",message:"Error while reserving."}
+              //           return res.json(resObj);
+              //         }
+              //         else{
+              //           console.log("Ride reserved successfully.");
+              //           resObj={error:"false",message:"Ride reserved successfully."}
+              //           return res.json(resObj);
+              //         }
+              //       }); 
+                  
+              // }
+              
+              else{
+                  Ride.findByIdAndUpdate(
+                      ride_id, { $pull: { "reserved_users": { "user_id": user_id } } }, { safe: true, upsert: true },
+                      function(err, rez) {
+                          if (err) { 
+                              resObj={error:"true",message:"Reservation cancelled error."}
+                              return res.json(resObj);
+                            }
+                          else{
+                              resObj={error:"false",message:"Reservation cancelled successfully."}
+                              return res.json(resObj);
+                            }
+                             
+                      });
+             
+              }
+                
+        }
+      }
+      }
+    );
+    
+          
+       
+}});
+});
+
+
+//Get pending rides
+router.post('/find-pending-rides',function(req,res,next){
+  console.log("====================================FIND PENDING RIDE REQUEST !!!!")
+  
+  //fetch values from request
+  var post_data=req.body;
+  var user_id=post_data.user_id;
+  
+  //connect with DB
+  mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
+  if(err){
+    console.log("Error in communicating with database");
+    return res.json("Error in communicating with database");
+  }
+  else{
+    Ride.findOne({'user_id':user_id, "status":"active"},function(err,data){
+      if(err){
+        throw err; 
+      }
+      else{
+        if(data===null){
+          
+            console.log("Cannot find any DRIVER with id: "+user_id);
+
+            //Find in reserved users
+            Ride.findOne({ status:"active", "reserved_users.user_id": user_id},function(err,newdata){
+              if(err){
+                throw err; 
+              }
+              else{
+                if(newdata===null){
+                  
+                    console.log("Cannot find any USER with id: "+user_id);
+                    resObj={'error':"false",'data':data,'is_driver':0, 'is_user':0}
+                    return res.json(resObj); 
+                      
+                }else{
+
+                        console.log("FOUND THE DRIVER  !!!!!!");
+                        console.log("Ride DETAILS: "+newdata);
+                        resObj={'error':"false",'data':newdata,'is_driver':0, 'is_user':1}
+                        return res.json(resObj); 
+        
+                }
+              }
+              }
+          );
+        }else{
+                console.log("FOUND THE DRIVER  !!!!!!");
+                console.log("Ride DETAILS: "+data);
+                resObj={'error':"false",'data':data,'is_driver':1, 'is_user':0}
+                return res.json(resObj); 
+
+
+        }
+      }
+      }
+    );
+
+    
+}});
+});
+
+
+//End a Ride request
+router.post('/end-ride',function(req,res,next){
+  console.log("====================================UPDATE A PENDING REQUEST!!!!")
+  //fetch values from request
+  var post_data=req.body;
+  var ride_id=post_data.ride_id;
+  
+  // connect with DB
+  mongoose.connect(dbUrl, {useNewUrlParser:true},function (err) {
+  if(err){
+    console.log("Error in communicating with database");
+    return res.json("Error in communicating with database");
+  }
+  else{
+
+    Ride.findOne({'_id':ride_id},function(err,data){
+      if(err){
+        throw err; 
+      }
+      else{
+        if(data===null){
+          var respondWithJson={
+            'error':'true',
+            'message':"Cannot find ride"
+          }
+            console.log("Error finding ride with id: "+ride_id);
+            return res.json(respondWithJson);    
+        }else{
+         
+              data.status="review"
+              data.save()
+              resObj={'error':"false",'message':"success",'data':data}
+              return res.json(resObj); 
+            }    
+        }
+      
+      }
+    );
+    
+          
+       
+}});
+});
+
 
 module.exports = router;
