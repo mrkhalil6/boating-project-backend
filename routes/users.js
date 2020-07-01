@@ -19,8 +19,8 @@ function sendVerificationMail(user){
     let transporter = nodemailer.createTransport({
       service: 'SendGrid',
       auth: {
-        user: 'TahaBohra', 
-        pass: '@Letmein786' 
+        user: '', 
+        pass: '' 
       }
     });
 
@@ -54,8 +54,8 @@ function sendResetMail(user){
     let transporter = nodemailer.createTransport({
       service: 'SendGrid',
       auth: {
-        user: 'TahaBohra', 
-        pass: '@Letmein786' 
+        user: '', 
+        pass: '' 
       }
     });
   
